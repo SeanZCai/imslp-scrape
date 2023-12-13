@@ -1,12 +1,10 @@
-#!/home/jake/.virtualenvs/default/bin/python
 import os
-import urllib2
+import urllib.request  # Use urllib.request for Python 3
 import lxml.html
 import re
 
-
 def parse_html(html):
-    return lxml.html.fromstring(open(html).read())
+    return lxml.html.fromstring(open(html, 'rb').read())  # Open file in binary mode
 
 def get_item_links(parsed_html):
     try:
@@ -28,15 +26,17 @@ for directory in os.listdir('people'):
             item_links = get_item_links(parsed_html)
             for url in item_links:
                 url = "http://imslp.org%s" % url
-                html = urllib2.urlopen(url).read()
+                html = urllib.request.urlopen(url).read().decode('utf-8')  # Decode the content to a string
                 oldid = re.search(id_pattern, html)
-                if oldid: id = oldid.group().replace('oldid=', '')
+                if oldid:
+                    id = oldid.group().replace('oldid=', '')
                 scores_html = "people/%s/%s_scores.html" % (directory, id)
                 score_id_map = "score_id_to_url_map.txt"
-                with open(scores_html, "wb") as f:
+                with open(scores_html, "w", encoding='utf-8') as f:  # Specify encoding for writing
                     f.write(html)
-                with open(score_id_map, "a") as ff:
+                with open(score_id_map, "a", encoding='utf-8') as ff:  # Specify encoding for appending
                     ff.write(id + '\t' + url + '\n')
-    except:
-        print 'ERROR :: %s' % directory
+    except Exception as e:
+        print('ERROR :: %s' % directory)
+        print(e)
         continue
