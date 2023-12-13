@@ -1,38 +1,31 @@
-#!/home/jake/.virtualenvs/default/bin/python
 import os
-import urllib2
+import urllib.request  # Use urllib.request for Python 3
 import lxml.html
 import base64
 import re
-import simplejson as json
+import json
 from subprocess import call
 
 ROOT_DIR = os.path.join(os.getcwd(), 'people')
-mkdir = lambda x: os.makedirs(x) if not os.path.exists(x) else None
 
-
-#______________________________________________________________________________
 def parse_html(html):
-    return lxml.html.fromstring(open(html).read())
+    return lxml.html.fromstring(open(html, 'rb').read())  # Open file in binary mode
 
-#______________________________________________________________________________
 def get_json(parsed_html):
     rmtitle = ' - IMSLP/Petrucci Music Library: Free Public Domain Sheet Music'
-    title = parsedhtml.cssselect('title')[0].text_content().replace(rmtitle, '').encode('utf-8')
-    id = base64.b64encode(title)
+    title = parsedhtml.cssselect('title')[0].text_content().replace(rmtitle, '').encode('utf-8').decode('utf-8')  # Decode to handle Unicode
+    id = base64.b64encode(title.encode('utf-8')).decode('utf-8')  # Encode and decode to handle Unicode
     query_url = ('http://imslp.org/imslpscripts/API.ISCR.php?'
                  'retformat=json/'
                  'disclaimer=accepted/'
                  'type=0/'
                  'id=%s' % id)
-    return json.loads(urllib2.urlopen(query_url).read())
+    return json.loads(urllib.request.urlopen(query_url).read().decode('utf-8'))  # Decode to handle Unicode
 
-#______________________________________________________________________________
 def get_pdf_names(parsed_html):
     return [x[2].split('/')[-1] for x in parsed_html.iterlinks() if 'pdf' in
             x[2] and 'images' in x[2]]
 
-#______________________________________________________________________________
 def get_date(jstor):
     bstor = jstor['extvals']
     try:
@@ -47,7 +40,6 @@ def get_date(jstor):
     except KeyError:
         return None
 
-#______________________________________________________________________________
 def mk_meta_dict(parsed_html, file):
     src = "http://imslp.org/index.php?oldid=%s" % file.replace('_scores.html','')
     jstor = get_json(parsedhtml)[0]
@@ -75,9 +67,8 @@ def mk_meta_dict(parsed_html, file):
                  'title': jstor['intvals']['worktitle'],
                  'creator': jstor['intvals']['composer'],
                  }
-    return {k: v for k,v in meta_dict.iteritems() if v}
+    return {k: v for k,v in meta_dict.items() if v}  # Use items() in Python 3
 
-#______________________________________________________________________________
 for dir in os.listdir('people'):
     ITEM_DIR = os.path.join(ROOT_DIR, dir)
     os.chdir(ITEM_DIR)
@@ -88,14 +79,14 @@ for dir in os.listdir('people'):
             identifier = "imslp-%s" % file.replace('_scores.html', '')
             final_item_dir = '/1/incoming/tmp/imslp/%s' % identifier
             pdf_files = [os.path.join(ITEM_DIR, x) for x in get_pdf_names(parsedhtml)]
-            mkdir(final_item_dir)
+            os.makedirs(final_item_dir, exist_ok=True)
             os.chdir(final_item_dir)
 
             # LOGGING
             #__________________________________________________________________
             if not meta_dict.get('date'):
-                print "WARNING :: NO DATE\t%s\t%s" % (identifier, ITEM_DIR)
+                print("WARNING :: NO DATE\t%s\t%s" % (identifier, ITEM_DIR))
             if not meta_dict.get('title'):
-                print "WARNING :: NO TITLE\t%s\t%s" % (identifier, ITEM_DIR)
+                print("WARNING :: NO TITLE\t%s\t%s" % (identifier, ITEM_DIR))
             if len(pdf_files) >= 10:
-                print "WARNING :: TOO MANY PDFs\t%s\t%s" % (identifier, ITEM_DIR)
+                print("WARNING :: TOO MANY PDFs\t%s\t%s" % (identifier, ITEM_DIR))
